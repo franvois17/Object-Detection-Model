@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "detector-inventario"
+version = "0.1.0"
+description = "Inventory artifact recognition using deep learning"
+requires-python = ">=3.10,<3.12"
+dependencies = [
+    "PySide6~=6.8",
+    "torch>=2.2",
+    "torchvision>=0.17",
+    "ultralytics>=8.2",
+    "opencv-python-headless>=4.9",
+    "faiss-cpu>=1.8",
+    "albumentations>=1.4",
+    "SQLAlchemy>=2.0",
+    "Pillow>=10.0",
+    "numpy>=1.24",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+sam2 = ["segment-anything-2"]
+dev = ["pytest>=7.0", "pytest-qt>=4.2"]
+
+[project.scripts]
+detector-inventario = "src.app.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
