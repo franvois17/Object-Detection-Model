@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
+
+# Prevent OpenMP duplicate library crash (PyTorch + OpenCV/FAISS conflict)
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 from PySide6.QtWidgets import QApplication
 

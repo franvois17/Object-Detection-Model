@@ -114,6 +114,14 @@ class CameraWorker(BaseWorker):
                         frame, detections, backbone, index, product_names
                     )
 
+                    # If YOLO found nothing, classify center crop of full frame
+                    if not results and index is not None and len(index) > 0:
+                        center_result = self._classify_full_frame(
+                            frame, backbone, index, product_names
+                        )
+                        if center_result:
+                            results = [center_result]
+
                     # Temporal smoothing: keep a sliding window
                     recent_detections.append(results)
                     if len(recent_detections) > config.temporal_window:
@@ -144,6 +152,46 @@ class CameraWorker(BaseWorker):
     # ------------------------------------------------------------------
     # Inference helpers
     # ------------------------------------------------------------------
+
+    def _classify_full_frame(
+        self,
+        frame: np.ndarray,
+        backbone: FeatureExtractor,
+        index: EmbeddingIndex,
+        product_names: dict[int, str],
+    ) -> dict | None:
+        """Classify the center crop of the full frame (fallback when YOLO finds nothing)."""
+        from src.video.cropper import ObjectCropper
+        from PIL import Image
+
+        cropper = ObjectCropper()
+        h, w = frame.shape[:2]
+        # Center square crop
+        side = min(h, w)
+        x1 = (w - side) // 2
+        y1 = (h - side) // 2
+        crop = cropper.crop_and_resize(frame, bbox=(x1, y1, x1 + side, y1 + side), padding=0.0)
+
+        crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(crop_rgb)
+
+        embedding = backbone.extract(pil_image)
+        neighbours = index.search(embedding, k=self._config.knn_k)
+
+        if not neighbours:
+            return None
+
+        product_id, similarity = neighbours[0]
+        name = product_names.get(product_id, f"Product {product_id}")
+        if similarity < self._config.confidence_threshold:
+            name = "Desconocido"
+
+        return {
+            "bbox": (x1, y1, x1 + side, y1 + side),
+            "product_name": name,
+            "confidence": similarity,
+            "product_id": product_id,
+        }
 
     def _load_index(self) -> EmbeddingIndex | None:
         """Load the FAISS product index, returning ``None`` if absent."""

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from src.app.widgets.training_progress import TrainingProgress
 from src.core.config import CONFIG
-from src.data.database import DatabaseManager, get_all_products
+from src.data.database import DatabaseManager, get_all_products, get_product_images
 from src.workers.training_worker import TrainingWorker
 
 
@@ -129,10 +129,13 @@ class TrainingPage(QWidget):
         )
 
     def _start_training(self, mode: str) -> None:
-        # Check we have enough products
+        # Check we have enough products (count actual images, not cached count)
         with self._db as session:
             products = get_all_products(session)
-            products_with_images = [p for p in products if p.image_count > 0]
+            products_with_images = [
+                p for p in products
+                if len(get_product_images(session, p.id)) > 0
+            ]
 
         if len(products_with_images) < 2:
             QMessageBox.warning(

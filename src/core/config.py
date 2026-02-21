@@ -40,7 +40,7 @@ class Config:
         return self.data_dir / "models" / "embeddings"
 
     # Video processing
-    frame_sample_fps: float = 1.0
+    frame_sample_fps: float = 2.0
     min_scene_change: float = 0.3
 
     # YOLO
@@ -70,7 +70,7 @@ class Config:
 
     # FAISS / KNN
     knn_k: int = 5
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.45
 
     # Camera
     camera_fps: int = 30

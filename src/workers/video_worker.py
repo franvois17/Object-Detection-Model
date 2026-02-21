@@ -116,8 +116,17 @@ class VideoProcessingWorker(BaseWorker):
             if self.is_cancelled:
                 return self._empty_result()
 
-            crops = cropper.process_frame(frame, detections, segmenter=segmenter)
-            all_crops.extend(crops)
+            if detections:
+                crops = cropper.process_frame(frame, detections, segmenter=segmenter)
+                all_crops.extend(crops)
+            else:
+                # No YOLO detection: use center crop of the full frame
+                crop = cropper.crop_and_resize(
+                    frame,
+                    bbox=(0, 0, frame.shape[1], frame.shape[0]),
+                    padding=0.0,
+                )
+                all_crops.append(crop)
 
             total = len(frames)
             pct = 70 + int(20 * (i + 1) / total) if total > 0 else 90

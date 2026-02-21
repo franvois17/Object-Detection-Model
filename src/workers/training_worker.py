@@ -269,10 +269,11 @@ class TrainingWorker(BaseWorker):
         if self.is_cancelled:
             return {}
 
-        # 5. Rebuild FAISS index with fine-tuned backbone
-        self.progress.emit(90, "Rebuilding FAISS index with fine-tuned backbone...")
-        backbone.model.eval()
-        self._rebuild_index(backbone)
+        # 5. Rebuild FAISS index with pretrained backbone (not fine-tuned)
+        #    so KNN inference stays consistent with the frozen extractor
+        self.progress.emit(90, "Rebuilding FAISS index...")
+        fresh_backbone = FeatureExtractor(device=DEVICE)
+        self._rebuild_index(fresh_backbone)
 
         self.progress.emit(100, "Full training complete.")
         logger.info(
