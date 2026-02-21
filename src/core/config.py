@@ -52,6 +52,10 @@ class Config:
     sam2_model: str = "sam2_t.pt"
     use_sam2: bool = False
 
+    # Background removal (GrabCut)
+    remove_background: bool = True
+    grabcut_iterations: int = 5
+
     # Cropping
     crop_padding: float = 0.10
     crop_size: int = 224

@@ -39,7 +39,15 @@ class ProductDataset(Dataset):
         label = self.labels[index]
 
         if self.transform is not None:
-            image = self.transform(image)
+            import numpy as np
+            import albumentations as A
+            if isinstance(self.transform, A.Compose):
+                # Albumentations expects numpy HWC array
+                img_np = np.array(image)
+                transformed = self.transform(image=img_np)
+                image = transformed["image"]
+            else:
+                image = self.transform(image)
 
         return image, label
 

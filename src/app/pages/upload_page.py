@@ -1,4 +1,4 @@
-"""Upload video page - select video, name product, process frames."""
+"""Upload video page - select video for new or existing product."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
@@ -43,21 +45,52 @@ class UploadPage(QWidget):
 
         subtitle = QLabel(
             "Graba un video de 15-60 segundos del producto desde varios angulos. "
-            "El sistema extraera frames automaticamente y detectara el objeto."
+            "Puedes subir multiples videos del mismo producto para mejorar el reconocimiento."
         )
         subtitle.setObjectName("subtitle")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
-        # Product name input
-        name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel("Nombre del producto:"))
+        # Product selection mode
+        mode_layout = QHBoxLayout()
+        self._radio_new = QRadioButton("Nuevo producto")
+        self._radio_new.setChecked(True)
+        self._radio_new.toggled.connect(self._on_mode_changed)
+        mode_layout.addWidget(self._radio_new)
+
+        self._radio_existing = QRadioButton("Agregar a producto existente")
+        self._radio_existing.toggled.connect(self._on_mode_changed)
+        mode_layout.addWidget(self._radio_existing)
+        mode_layout.addStretch()
+        layout.addLayout(mode_layout)
+
+        # New product name input
+        self._new_layout = QHBoxLayout()
+        self._new_layout.addWidget(QLabel("Nombre:"))
         self._name_input = QLineEdit()
         self._name_input.setPlaceholderText("Ej: Coca-Cola 600ml")
         self._name_input.setMaximumWidth(400)
-        name_layout.addWidget(self._name_input)
-        name_layout.addStretch()
-        layout.addLayout(name_layout)
+        self._name_input.textChanged.connect(self._update_process_button)
+        self._new_layout.addWidget(self._name_input)
+        self._new_layout.addStretch()
+        layout.addLayout(self._new_layout)
+
+        # Existing product selector
+        self._existing_layout = QHBoxLayout()
+        self._existing_layout.addWidget(QLabel("Producto:"))
+        self._product_combo = QComboBox()
+        self._product_combo.setMinimumWidth(300)
+        self._product_combo.currentIndexChanged.connect(self._update_process_button)
+        self._existing_layout.addWidget(self._product_combo)
+
+        self._btn_refresh = QPushButton("Actualizar")
+        self._btn_refresh.clicked.connect(self._load_products)
+        self._existing_layout.addWidget(self._btn_refresh)
+        self._existing_layout.addStretch()
+        layout.addLayout(self._existing_layout)
+
+        # Initially hide existing product selector
+        self._set_existing_visible(False)
 
         # Video selection
         file_layout = QHBoxLayout()
@@ -103,6 +136,51 @@ class UploadPage(QWidget):
         self._progress_label.setStyleSheet("color: #a6adc8; font-size: 12px;")
         layout.addWidget(self._progress_label)
 
+    def _set_existing_visible(self, visible: bool) -> None:
+        for i in range(self._existing_layout.count()):
+            w = self._existing_layout.itemAt(i).widget()
+            if w:
+                w.setVisible(visible)
+
+    def _set_new_visible(self, visible: bool) -> None:
+        for i in range(self._new_layout.count()):
+            w = self._new_layout.itemAt(i).widget()
+            if w:
+                w.setVisible(visible)
+
+    @Slot(bool)
+    def _on_mode_changed(self, _checked: bool) -> None:
+        is_new = self._radio_new.isChecked()
+        self._set_new_visible(is_new)
+        self._set_existing_visible(not is_new)
+        if not is_new:
+            self._load_products()
+        self._update_process_button()
+
+    def _load_products(self) -> None:
+        self._product_combo.blockSignals(True)
+        self._product_combo.clear()
+        with self._db as session:
+            products = get_all_products(session)
+            for p in products:
+                self._product_combo.addItem(
+                    f"{p.name} ({p.image_count} imgs)", p.id
+                )
+        self._product_combo.blockSignals(False)
+        self._update_process_button()
+
+    def _update_process_button(self) -> None:
+        has_video = self._video_path is not None
+        if self._radio_new.isChecked():
+            has_product = bool(self._name_input.text().strip())
+        else:
+            has_product = self._product_combo.count() > 0
+        self._btn_process.setEnabled(has_video and has_product)
+
+    def on_activated(self) -> None:
+        if self._radio_existing.isChecked():
+            self._load_products()
+
     @Slot()
     def _select_video(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -119,31 +197,37 @@ class UploadPage(QWidget):
         if not ok:
             QMessageBox.warning(self, "Error", "No se pudo abrir el video.")
             return
-        self._btn_process.setEnabled(bool(self._name_input.text().strip()))
-        self._name_input.textChanged.connect(
-            lambda t: self._btn_process.setEnabled(bool(t.strip()) and self._video_path is not None)
-        )
+        self._update_process_button()
 
     @Slot()
     def _start_processing(self) -> None:
-        name = self._name_input.text().strip()
-        if not name or not self._video_path:
+        if not self._video_path:
             return
 
-        # Check for duplicate name
-        with self._db as session:
-            existing = get_all_products(session)
-            if any(p.name == name for p in existing):
-                QMessageBox.warning(
-                    self, "Duplicado",
-                    f"Ya existe un producto llamado '{name}'."
-                )
+        if self._radio_new.isChecked():
+            name = self._name_input.text().strip()
+            if not name:
                 return
-
-        # Create product in DB
-        with self._db as session:
-            product = create_product(session, name)
-            product_id = product.id
+            # Check for duplicate name
+            with self._db as session:
+                existing = get_all_products(session)
+                if any(p.name == name for p in existing):
+                    QMessageBox.warning(
+                        self, "Duplicado",
+                        f"Ya existe un producto llamado '{name}'. "
+                        "Usa 'Agregar a producto existente' para anadir mas videos."
+                    )
+                    return
+            # Create product in DB
+            with self._db as session:
+                product = create_product(session, name)
+                product_id = product.id
+        else:
+            idx = self._product_combo.currentIndex()
+            if idx < 0:
+                return
+            product_id = self._product_combo.itemData(idx)
+            name = self._product_combo.currentText().split(" (")[0]
 
         self._player.stop()
         self._btn_process.setEnabled(False)

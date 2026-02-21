@@ -294,15 +294,19 @@ class TrainingWorker(BaseWorker):
     def _build_datasets(self):
         """Scan the images directory and build train/val DataLoaders.
 
+        Uses albumentations augmentations (including random background
+        replacement) for training data.
+
         Returns
         -------
         tuple | None
             ``(train_loader, val_loader, num_classes, label_map)`` or
             ``None`` when no usable data is found.
         """
-        import torch
-        from torch.utils.data import DataLoader, TensorDataset, random_split
-        from PIL import Image
+        import random
+        from torch.utils.data import DataLoader
+        from src.data.dataset import ProductDataset
+        from src.ml.augmentations import get_train_transforms, get_val_transforms
 
         config = self._config
         images_dir = config.images_dir
@@ -315,10 +319,11 @@ class TrainingWorker(BaseWorker):
         if not product_dirs:
             return None
 
-        transform = FeatureExtractor.get_transform()
-        all_tensors: list = []
-        all_labels: list[int] = []
-        label_map: dict[int, int] = {}  # product_id -> class_idx
+        label_map: dict[int, int] = {}
+        train_paths: list[str] = []
+        train_labels: list[int] = []
+        val_paths: list[str] = []
+        val_labels: list[int] = []
 
         for product_dir in product_dirs:
             try:
@@ -327,7 +332,7 @@ class TrainingWorker(BaseWorker):
                 continue
 
             image_files = sorted(
-                p for p in product_dir.iterdir()
+                str(p) for p in product_dir.iterdir()
                 if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")
             )
             if not image_files:
@@ -337,27 +342,27 @@ class TrainingWorker(BaseWorker):
                 label_map[product_id] = len(label_map)
             class_idx = label_map[product_id]
 
-            for img_path in image_files:
-                try:
-                    img = Image.open(img_path).convert("RGB")
-                    tensor = transform(img)
-                    all_tensors.append(tensor)
-                    all_labels.append(class_idx)
-                except Exception:
-                    logger.warning("Cannot load image: %s", img_path)
+            # Split per product (deterministic)
+            rng = random.Random(product_id)
+            shuffled = list(image_files)
+            rng.shuffle(shuffled)
+            n_val = max(1, int(len(shuffled) * 0.2)) if len(shuffled) > 1 else 0
+            val_paths.extend(shuffled[:n_val])
+            val_labels.extend([class_idx] * n_val)
+            train_paths.extend(shuffled[n_val:])
+            train_labels.extend([class_idx] * (len(shuffled) - n_val))
 
-        if not all_tensors:
+        if not train_paths:
             return None
 
         num_classes = len(label_map)
-        dataset = TensorDataset(
-            torch.stack(all_tensors),
-            torch.tensor(all_labels, dtype=torch.long),
-        )
 
-        val_size = max(1, int(0.2 * len(dataset)))
-        train_size = len(dataset) - val_size
-        train_ds, val_ds = random_split(dataset, [train_size, val_size])
+        train_ds = ProductDataset(
+            train_paths, train_labels, transform=get_train_transforms(config.image_size)
+        )
+        val_ds = ProductDataset(
+            val_paths, val_labels, transform=get_val_transforms(config.image_size)
+        )
 
         train_loader = DataLoader(
             train_ds, batch_size=config.train_batch_size, shuffle=True

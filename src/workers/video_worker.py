@@ -103,8 +103,10 @@ class VideoProcessingWorker(BaseWorker):
         if self.is_cancelled:
             return self._empty_result()
 
-        # 3. Cropping (70 -- 90 %)
-        self.progress.emit(70, "Cropping detections...")
+        # 3. Cropping + background removal (70 -- 90 %)
+        use_bg_removal = config.remove_background
+        msg = "Cropping and removing background..." if use_bg_removal else "Cropping detections..."
+        self.progress.emit(70, msg)
         cropper = ObjectCropper()
 
         segmenter = None
@@ -117,15 +119,23 @@ class VideoProcessingWorker(BaseWorker):
                 return self._empty_result()
 
             if detections:
-                crops = cropper.process_frame(frame, detections, segmenter=segmenter)
+                crops = cropper.process_frame(
+                    frame, detections, segmenter=segmenter,
+                    remove_bg=use_bg_removal,
+                )
                 all_crops.extend(crops)
             else:
                 # No YOLO detection: use center crop of the full frame
-                crop = cropper.crop_and_resize(
-                    frame,
-                    bbox=(0, 0, frame.shape[1], frame.shape[0]),
-                    padding=0.0,
-                )
+                if use_bg_removal:
+                    clean, _ = cropper.remove_background(frame)
+                    crop = cv2.resize(clean, (config.crop_size, config.crop_size),
+                                      interpolation=cv2.INTER_LANCZOS4)
+                else:
+                    crop = cropper.crop_and_resize(
+                        frame,
+                        bbox=(0, 0, frame.shape[1], frame.shape[0]),
+                        padding=0.0,
+                    )
                 all_crops.append(crop)
 
             total = len(frames)
