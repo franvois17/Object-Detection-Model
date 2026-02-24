@@ -15,8 +15,6 @@ from PySide6.QtWidgets import (
 )
 
 from src.app.pages.upload_page import UploadPage
-from src.app.pages.review_page import ReviewPage
-from src.app.pages.products_page import ProductsPage
 from src.app.pages.training_page import TrainingPage
 from src.app.pages.recognition_page import RecognitionPage
 from src.core.config import CONFIG
@@ -62,10 +60,8 @@ class MainWindow(QMainWindow):
         self._nav_group.setExclusive(True)
         nav_items = [
             ("Subir Video", 0),
-            ("Revisar Recortes", 1),
-            ("Productos", 2),
-            ("Entrenamiento", 3),
-            ("Reconocimiento", 4),
+            ("Entrenar", 1),
+            ("Reconocer", 2),
         ]
         for label, idx in nav_items:
             btn = QPushButton(label)
@@ -88,14 +84,10 @@ class MainWindow(QMainWindow):
         self._stack.setObjectName("content_area")
 
         self._upload_page = UploadPage(self.db)
-        self._review_page = ReviewPage(self.db)
-        self._products_page = ProductsPage(self.db)
         self._training_page = TrainingPage(self.db)
         self._recognition_page = RecognitionPage(self.db)
 
         self._stack.addWidget(self._upload_page)
-        self._stack.addWidget(self._review_page)
-        self._stack.addWidget(self._products_page)
         self._stack.addWidget(self._training_page)
         self._stack.addWidget(self._recognition_page)
 
@@ -114,8 +106,9 @@ class MainWindow(QMainWindow):
         self._nav_group.button(0).setChecked(True)
 
         # Connect cross-page signals
-        self._upload_page.processing_complete.connect(self._on_upload_complete)
-        self._training_page.training_complete.connect(self._on_training_complete)
+        self._upload_page.processing_complete.connect(self._update_status)
+        self._upload_page.auto_training_complete.connect(self._update_status)
+        self._training_page.training_complete.connect(self._update_status)
 
     @Slot(int)
     def _on_nav(self, idx: int) -> None:
@@ -123,17 +116,6 @@ class MainWindow(QMainWindow):
         page = self._stack.currentWidget()
         if hasattr(page, "on_activated"):
             page.on_activated()
-
-    @Slot()
-    def _on_upload_complete(self) -> None:
-        self._update_status()
-        # Auto-navigate to review page
-        self._nav_group.button(1).setChecked(True)
-        self._on_nav(1)
-
-    @Slot()
-    def _on_training_complete(self) -> None:
-        self._update_status()
 
     def _update_status(self) -> None:
         with self.db as session:

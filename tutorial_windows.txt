@@ -1,0 +1,286 @@
+================================================================================
+        TUTORIAL: Ejecutar Detector de Inventario en Windows
+================================================================================
+
+Este tutorial explica paso a paso como instalar y ejecutar la aplicacion
+"Detector de Inventario" en Windows desde cero.
+
+================================================================================
+REQUISITOS PREVIOS
+================================================================================
+
+1. Windows 10 u 11 (64 bits)
+2. Conexion a internet (para descargar Python, dependencias y modelos)
+3. Minimo 4 GB de RAM (recomendado 8 GB o mas)
+4. (Opcional) GPU NVIDIA con CUDA para aceleracion por hardware
+5. Webcam (para la funcion de reconocimiento en vivo)
+
+================================================================================
+PASO 1: Instalar Python 3.10
+================================================================================
+
+La aplicacion requiere Python 3.10 o superior.
+
+1. Ir a: https://www.python.org/downloads/
+2. Descargar Python 3.10.x (cualquier subversion, ej: 3.10.11)
+   Link directo: https://www.python.org/downloads/release/python-31011/
+   Descargar "Windows installer (64-bit)"
+
+3. Ejecutar el instalador
+   IMPORTANTE: Marcar la casilla "Add Python to PATH" en la primera pantalla.
+   Luego hacer clic en "Install Now".
+
+4. Verificar la instalacion:
+   Abrir CMD (tecla Windows + escribir "cmd" + Enter) y ejecutar:
+
+      python --version
+
+   Debe mostrar algo como: Python 3.10.11
+
+   Si muestra error o una version diferente, probar con:
+
+      python3 --version
+
+   Si ninguno funciona, Python no se agrego al PATH. Desinstalar y
+   reinstalar marcando la casilla "Add Python to PATH".
+
+================================================================================
+PASO 2: Instalar Git (opcional pero recomendado)
+================================================================================
+
+1. Ir a: https://git-scm.com/download/win
+2. Descargar e instalar con las opciones por defecto
+3. Verificar:
+
+      git --version
+
+================================================================================
+PASO 3: Descargar el proyecto
+================================================================================
+
+Opcion A - Con Git:
+   Abrir CMD y ejecutar:
+
+      git clone https://github.com/franvois17/Object-Detection-Model.git
+      cd Object-Detection-Model
+
+Opcion B - Sin Git:
+   1. Ir a la pagina del repositorio en GitHub
+   2. Clic en "Code" -> "Download ZIP"
+   3. Extraer el ZIP en una carpeta (ej: C:\Users\TuUsuario\detector_inventario)
+   4. Abrir CMD y navegar a esa carpeta:
+
+      cd C:\Users\TuUsuario\detector_inventario
+
+================================================================================
+PASO 4: Crear el entorno virtual
+================================================================================
+
+Desde la carpeta del proyecto en CMD:
+
+   python -m venv .venv
+
+Esto crea una carpeta ".venv" con un entorno aislado de Python.
+
+================================================================================
+PASO 5: Activar el entorno virtual
+================================================================================
+
+En CMD (Command Prompt):
+
+   .venv\Scripts\activate
+
+En PowerShell:
+
+   .venv\Scripts\Activate.ps1
+
+   NOTA: Si PowerShell da un error de "execution policy", ejecutar primero:
+
+      Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+   Y luego volver a intentar la activacion.
+
+Sabras que el entorno esta activo porque veras "(.venv)" al inicio de la
+linea de comandos, asi:
+
+   (.venv) C:\Users\TuUsuario\detector_inventario>
+
+IMPORTANTE: Cada vez que abras una nueva ventana de CMD/PowerShell,
+debes activar el entorno virtual de nuevo antes de ejecutar la app.
+
+================================================================================
+PASO 6: Instalar PyTorch con soporte CUDA (si tienes GPU NVIDIA)
+================================================================================
+
+--- Si tienes GPU NVIDIA con CUDA ---
+
+Primero instala PyTorch con CUDA antes de las demas dependencias.
+Ir a https://pytorch.org/get-started/locally/ y seleccionar:
+   - OS: Windows
+   - Package: pip
+   - Language: Python
+   - Compute Platform: tu version de CUDA (ej: CUDA 12.1)
+
+Ejemplo para CUDA 12.1:
+
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+Ejemplo para CUDA 11.8:
+
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+--- Si NO tienes GPU NVIDIA (solo CPU) ---
+
+No necesitas hacer nada especial aqui. PyTorch se instalara con soporte
+CPU en el siguiente paso. La app funcionara pero sera mas lenta para
+entrenamiento e inferencia.
+
+================================================================================
+PASO 7: Instalar las dependencias del proyecto
+================================================================================
+
+Con el entorno virtual activado, ejecutar:
+
+   pip install -r requirements.txt
+
+Esto instalara:
+   - PySide6 (interfaz grafica)
+   - torch y torchvision (deep learning)
+   - ultralytics (YOLOv8 para deteccion de objetos)
+   - opencv-python-headless (procesamiento de imagen)
+   - faiss-cpu (busqueda por similitud)
+   - albumentations (augmentacion de datos)
+   - SQLAlchemy (base de datos)
+   - Pillow (manejo de imagenes)
+   - numpy, tqdm
+
+La instalacion puede tardar varios minutos dependiendo de tu conexion.
+
+Si PyTorch con CUDA ya se instalo en el paso 6, pip lo detectara y no lo
+reinstalara.
+
+================================================================================
+PASO 8: Descargar los modelos preentrenados
+================================================================================
+
+Ejecutar el script de descarga de modelos:
+
+   python scripts/download_models.py
+
+Esto descargara:
+   - YOLOv8n (modelo de deteccion de objetos, ~6 MB)
+   - EfficientNet-V2-S (modelo de embeddings, ~88 MB)
+
+Los modelos se guardan en: data/models/pretrained/
+
+================================================================================
+PASO 9: Ejecutar la aplicacion
+================================================================================
+
+Con el entorno virtual activado, desde la carpeta raiz del proyecto:
+
+   python -m src.app.main
+
+Se abrira la ventana de la aplicacion "Detector de Inventario".
+
+En la barra inferior veras el dispositivo detectado:
+   - "CUDA (NVIDIA ...)" si tienes GPU
+   - "CPU" si no tienes GPU
+
+================================================================================
+PASO 10: Usar la aplicacion
+================================================================================
+
+La app tiene 3 secciones en la barra lateral izquierda:
+
+1. SUBIR VIDEO
+   - Haz clic en "Seleccionar Video" y elige un video (.mp4, .avi, etc.)
+     de un producto que quieras registrar.
+   - El video debe durar entre 15 y 60 segundos mostrando el producto
+     desde varios angulos.
+   - Escribe un nombre para el producto.
+   - Haz clic en "Procesar". El sistema extraera frames, detectara el
+     objeto, removera el fondo y guardara recortes limpios.
+   - Puedes agregar multiples videos del mismo producto para mejorar
+     la precision.
+
+2. ENTRENAR
+   - Entrenamiento incremental: rapido (segundos), solo actualiza el
+     indice FAISS. Util para agregar productos nuevos rapidamente.
+   - Entrenamiento completo: mas lento (minutos), hace fine-tune del
+     modelo. Mejor precision general.
+
+3. RECONOCER
+   - Abre la webcam y detecta productos en tiempo real.
+   - Muestra el nombre del producto y nivel de confianza.
+
+================================================================================
+SOLUCION DE PROBLEMAS COMUNES
+================================================================================
+
+PROBLEMA: "python" no se reconoce como comando
+SOLUCION: Python no esta en el PATH. Reinstalar Python marcando
+          "Add Python to PATH" o usar la ruta completa:
+          C:\Users\TuUsuario\AppData\Local\Programs\Python\Python310\python.exe
+
+PROBLEMA: Error "No module named 'src'"
+SOLUCION: Asegurate de estar en la carpeta raiz del proyecto (donde esta
+          requirements.txt) y de usar "python -m src.app.main" (no
+          "python src/app/main.py").
+
+PROBLEMA: Error de permisos en PowerShell al activar el entorno virtual
+SOLUCION: Ejecutar primero:
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+PROBLEMA: "ERROR: Could not find a version that satisfies the requirement..."
+SOLUCION: Verificar que estas usando Python 3.10+ (python --version).
+          Si tienes multiples versiones de Python, usar:
+          py -3.10 -m venv .venv
+
+PROBLEMA: La camara no se detecta
+SOLUCION: Verifica que tu webcam este conectada y que no la este usando
+          otra aplicacion (Zoom, Teams, etc.). Cierra esas apps e intenta
+          de nuevo.
+
+PROBLEMA: CUDA no se detecta aunque tengo GPU NVIDIA
+SOLUCION:
+   1. Verificar que tienes drivers NVIDIA actualizados:
+      https://www.nvidia.com/Download/index.aspx
+   2. Verificar que instalaste PyTorch con CUDA (paso 6).
+   3. Probar en Python:
+         python -c "import torch; print(torch.cuda.is_available())"
+      Si dice "False", reinstalar PyTorch con la version correcta de CUDA.
+
+PROBLEMA: Error "KMP_DUPLICATE_LIB_OK" o crash de OpenMP
+SOLUCION: La app ya maneja esto automaticamente. Si aun falla, agregar
+          manualmente antes de ejecutar:
+          set KMP_DUPLICATE_LIB_OK=TRUE
+          python -m src.app.main
+
+PROBLEMA: La app va muy lenta sin GPU
+SOLUCION: Sin GPU, el entrenamiento completo sera significativamente mas
+          lento. Usar entrenamiento incremental (solo FAISS) como
+          alternativa rapida. La deteccion en camara tambien sera mas
+          lenta pero funcional.
+
+PROBLEMA: Error al instalar faiss-cpu
+SOLUCION: Asegurate de usar Python 3.10 o 3.11. faiss-cpu puede no
+          tener wheels para versiones mas nuevas de Python. Si falla:
+          pip install faiss-cpu==1.8.0
+
+================================================================================
+RESUMEN RAPIDO (comandos en CMD)
+================================================================================
+
+   git clone https://github.com/franvois17/Object-Detection-Model.git
+   cd Object-Detection-Model
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+   pip install -r requirements.txt
+   python scripts/download_models.py
+   python -m src.app.main
+
+(Omitir la linea de torch/torchvision con CUDA si no tienes GPU NVIDIA)
+
+================================================================================

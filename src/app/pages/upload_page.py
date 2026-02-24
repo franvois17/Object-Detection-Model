@@ -22,16 +22,20 @@ from PySide6.QtWidgets import (
 from src.app.widgets.video_player import VideoPlayer
 from src.data.database import DatabaseManager, create_product, get_all_products
 from src.workers.video_worker import VideoProcessingWorker
+from src.workers.training_worker import TrainingWorker
 
 
 class UploadPage(QWidget):
     processing_complete = Signal()
+    auto_training_complete = Signal()
 
     def __init__(self, db: DatabaseManager, parent=None) -> None:
         super().__init__(parent)
         self._db = db
         self._video_path: str | None = None
         self._worker: VideoProcessingWorker | None = None
+        self._training_worker: TrainingWorker | None = None
+        self._current_product_name: str = ""
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -229,6 +233,7 @@ class UploadPage(QWidget):
             product_id = self._product_combo.itemData(idx)
             name = self._product_combo.currentText().split(" (")[0]
 
+        self._current_product_name = name
         self._player.stop()
         self._btn_process.setEnabled(False)
         self._btn_cancel.setEnabled(True)
@@ -261,12 +266,43 @@ class UploadPage(QWidget):
 
     @Slot(object)
     def _on_finished(self, result: dict) -> None:
-        self._reset_ui()
         n = result.get("num_crops", 0)
+        self._worker = None
         self._progress_label.setText(
-            f"Procesamiento completo: {n} recortes extraidos."
+            f"{n} recortes extraidos. Entrenando modelo..."
         )
+        self._progress.setValue(0)
         self.processing_complete.emit()
+        self._start_auto_training()
+
+    def _start_auto_training(self) -> None:
+        self._training_worker = TrainingWorker(mode="incremental")
+        self._training_worker.progress.connect(self._on_training_progress)
+        self._training_worker.error.connect(self._on_training_error)
+        self._training_worker.finished_ok.connect(self._on_training_finished)
+        self._training_worker.start()
+
+    @Slot(int, str)
+    def _on_training_progress(self, percent: int, message: str) -> None:
+        self._progress.setValue(percent)
+        self._progress_label.setText(f"Entrenando: {message}")
+
+    @Slot(str)
+    def _on_training_error(self, message: str) -> None:
+        self._reset_ui()
+        self._progress_label.setText(
+            f"Video procesado, pero error en entrenamiento: {message}"
+        )
+
+    @Slot(object)
+    def _on_training_finished(self, result: dict) -> None:
+        self._reset_ui()
+        name = self._current_product_name
+        self._progress_label.setText(
+            f"Producto '{name}' listo para reconocimiento"
+        )
+        self._progress_label.setStyleSheet("color: #a6e3a1; font-size: 12px;")
+        self.auto_training_complete.emit()
 
     def _reset_ui(self) -> None:
         self._btn_process.setEnabled(True)
@@ -274,3 +310,4 @@ class UploadPage(QWidget):
         self._btn_select.setEnabled(True)
         self._progress.setVisible(False)
         self._worker = None
+        self._training_worker = None

@@ -1,4 +1,4 @@
-"""Training page - trigger incremental or full training."""
+"""Training page - simplified with one main button and optional advanced mode."""
 
 from __future__ import annotations
 
@@ -34,54 +34,63 @@ class TrainingPage(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        title = QLabel("Entrenamiento del Modelo")
+        title = QLabel("Entrenar Modelo")
         title.setObjectName("title")
         layout.addWidget(title)
 
         subtitle = QLabel(
-            "El modo incremental (KNN) es rapido y no requiere reentrenamiento. "
-            "El modo completo entrena un clasificador para mayor precision."
+            "Entrena el modelo con todos los productos registrados. "
+            "El entrenamiento se ejecuta automaticamente al subir un video, "
+            "pero puedes re-entrenar manualmente aqui."
         )
         subtitle.setObjectName("subtitle")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
-        # Stats
+        # Product stats
         self._stats_label = QLabel()
         self._stats_label.setStyleSheet("color: #a6adc8;")
         layout.addWidget(self._stats_label)
 
-        # Incremental mode
-        inc_group = QGroupBox("Modo Rapido (KNN / FAISS)")
-        inc_layout = QVBoxLayout(inc_group)
-        inc_desc = QLabel(
-            "Extrae embeddings de todas las imagenes y construye un indice FAISS. "
-            "Tarda ~5-15 segundos. Ideal al agregar nuevos productos."
+        # Product list
+        self._product_list_label = QLabel()
+        self._product_list_label.setWordWrap(True)
+        self._product_list_label.setStyleSheet(
+            "background-color: #313244; border-radius: 8px; "
+            "padding: 12px; color: #cdd6f4;"
         )
-        inc_desc.setWordWrap(True)
-        inc_desc.setStyleSheet("color: #a6adc8;")
-        inc_layout.addWidget(inc_desc)
+        layout.addWidget(self._product_list_label)
 
-        self._btn_incremental = QPushButton("Construir Indice KNN")
-        self._btn_incremental.setObjectName("primary")
-        self._btn_incremental.clicked.connect(
+        # Main train button
+        self._btn_train = QPushButton("Entrenar Modelo")
+        self._btn_train.setObjectName("primary")
+        self._btn_train.setMinimumHeight(48)
+        self._btn_train.setStyleSheet(
+            "QPushButton { font-size: 16px; font-weight: bold; }"
+        )
+        self._btn_train.clicked.connect(
             lambda: self._start_training("incremental")
         )
-        inc_layout.addWidget(
-            self._btn_incremental, alignment=Qt.AlignmentFlag.AlignLeft
-        )
-        layout.addWidget(inc_group)
+        layout.addWidget(self._btn_train)
 
-        # Full training mode
-        full_group = QGroupBox("Modo Completo (Fine-tune Clasificador)")
-        full_layout = QVBoxLayout(full_group)
-        full_desc = QLabel(
-            "Entrena la cabeza de clasificacion con fine-tuning de EfficientNet. "
-            "Mayor precision pero tarda varios minutos. Se ejecuta en background."
+        # Advanced section (collapsed by default)
+        self._btn_advanced_toggle = QPushButton("Entrenamiento Avanzado")
+        self._btn_advanced_toggle.setObjectName("secondary")
+        self._btn_advanced_toggle.setCheckable(True)
+        self._btn_advanced_toggle.clicked.connect(self._toggle_advanced)
+        layout.addWidget(
+            self._btn_advanced_toggle, alignment=Qt.AlignmentFlag.AlignLeft
         )
-        full_desc.setWordWrap(True)
-        full_desc.setStyleSheet("color: #a6adc8;")
-        full_layout.addWidget(full_desc)
+
+        self._advanced_group = QGroupBox("Entrenamiento Completo (Fine-tune)")
+        adv_layout = QVBoxLayout(self._advanced_group)
+        adv_desc = QLabel(
+            "Entrena un clasificador con fine-tuning de EfficientNet. "
+            "Mayor precision pero tarda varios minutos."
+        )
+        adv_desc.setWordWrap(True)
+        adv_desc.setStyleSheet("color: #a6adc8;")
+        adv_layout.addWidget(adv_desc)
 
         epochs_layout = QHBoxLayout()
         epochs_layout.addWidget(QLabel("Epocas:"))
@@ -90,7 +99,7 @@ class TrainingPage(QWidget):
         self._epochs_spin.setValue(CONFIG.train_epochs)
         epochs_layout.addWidget(self._epochs_spin)
         epochs_layout.addStretch()
-        full_layout.addLayout(epochs_layout)
+        adv_layout.addLayout(epochs_layout)
 
         btn_row = QHBoxLayout()
         self._btn_full = QPushButton("Iniciar Entrenamiento Completo")
@@ -106,15 +115,20 @@ class TrainingPage(QWidget):
         self._btn_cancel.clicked.connect(self._cancel_training)
         btn_row.addWidget(self._btn_cancel)
         btn_row.addStretch()
-        full_layout.addLayout(btn_row)
+        adv_layout.addLayout(btn_row)
 
-        layout.addWidget(full_group)
+        self._advanced_group.setVisible(False)
+        layout.addWidget(self._advanced_group)
 
         # Progress widget
         self._progress = TrainingProgress()
         layout.addWidget(self._progress)
 
         layout.addStretch()
+
+    @Slot(bool)
+    def _toggle_advanced(self, checked: bool) -> None:
+        self._advanced_group.setVisible(checked)
 
     def on_activated(self) -> None:
         self._update_stats()
@@ -123,13 +137,23 @@ class TrainingPage(QWidget):
         with self._db as session:
             products = get_all_products(session)
             total_imgs = sum(p.image_count for p in products)
+
         self._stats_label.setText(
             f"Productos registrados: {len(products)}  |  "
             f"Imagenes totales: {total_imgs}"
         )
 
+        if products:
+            lines = []
+            for p in products:
+                lines.append(f"  {p.name}  --  {p.image_count} imagenes")
+            self._product_list_label.setText("\n".join(lines))
+        else:
+            self._product_list_label.setText(
+                "No hay productos registrados. Sube un video primero."
+            )
+
     def _start_training(self, mode: str) -> None:
-        # Check we have enough products (count actual images, not cached count)
         with self._db as session:
             products = get_all_products(session)
             products_with_images = [
@@ -145,7 +169,7 @@ class TrainingPage(QWidget):
             )
             return
 
-        self._btn_incremental.setEnabled(False)
+        self._btn_train.setEnabled(False)
         self._btn_full.setEnabled(False)
         self._btn_cancel.setEnabled(mode == "full")
         self._progress.reset()
@@ -193,7 +217,7 @@ class TrainingPage(QWidget):
         self.training_complete.emit()
 
     def _reset_buttons(self) -> None:
-        self._btn_incremental.setEnabled(True)
+        self._btn_train.setEnabled(True)
         self._btn_full.setEnabled(True)
         self._btn_cancel.setEnabled(False)
         self._worker = None

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -34,31 +33,22 @@ class RecognitionPage(QWidget):
         title.setObjectName("title")
         layout.addWidget(title)
 
-        # Controls
-        controls = QHBoxLayout()
+        subtitle = QLabel(
+            "Muestra un producto frente a la camara para identificarlo."
+        )
+        subtitle.setObjectName("subtitle")
+        subtitle.setWordWrap(True)
+        layout.addWidget(subtitle)
 
-        controls.addWidget(QLabel("Camara:"))
-        self._camera_combo = QComboBox()
-        self._camera_combo.addItem("Camara 0", 0)
-        self._camera_combo.addItem("Camara 1", 1)
-        self._camera_combo.setMaximumWidth(150)
-        controls.addWidget(self._camera_combo)
-
-        controls.addWidget(QLabel("Modo:"))
-        self._mode_combo = QComboBox()
-        self._mode_combo.addItem("KNN (rapido)", "knn")
-        self._mode_combo.addItem("Clasificador", "classifier")
-        self._mode_combo.setMaximumWidth(180)
-        controls.addWidget(self._mode_combo)
-
-        controls.addStretch()
-
+        # Single start/stop button
         self._btn_start = QPushButton("Iniciar Camara")
         self._btn_start.setObjectName("primary")
+        self._btn_start.setMinimumHeight(48)
+        self._btn_start.setStyleSheet(
+            "QPushButton { font-size: 16px; font-weight: bold; }"
+        )
         self._btn_start.clicked.connect(self._toggle_camera)
-        controls.addWidget(self._btn_start)
-
-        layout.addLayout(controls)
+        layout.addWidget(self._btn_start)
 
         # Camera view
         self._camera_view = CameraView()
@@ -94,10 +84,7 @@ class RecognitionPage(QWidget):
             self._start_camera()
 
     def _start_camera(self) -> None:
-        camera_idx = self._camera_combo.currentData()
-        mode = self._mode_combo.currentData()
-
-        self._worker = CameraWorker(camera_index=camera_idx)
+        self._worker = CameraWorker(camera_index=0)
         self._worker.frame_ready.connect(self._on_frame)
         self._worker.detection_ready.connect(self._on_detections)
         self._worker.error.connect(self._on_error)
@@ -108,7 +95,6 @@ class RecognitionPage(QWidget):
         self._btn_start.setObjectName("danger")
         self._btn_start.style().unpolish(self._btn_start)
         self._btn_start.style().polish(self._btn_start)
-        self._camera_combo.setEnabled(False)
 
     def stop_camera(self) -> None:
         if self._worker is not None:
@@ -120,7 +106,6 @@ class RecognitionPage(QWidget):
         self._btn_start.setObjectName("primary")
         self._btn_start.style().unpolish(self._btn_start)
         self._btn_start.style().polish(self._btn_start)
-        self._camera_combo.setEnabled(True)
         self._fps_label.setText("FPS: -")
         self._detection_label.setText("Detecciones: -")
         self._results_label.setText("")
