@@ -11,13 +11,15 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files
 ultralytics_datas, ultralytics_binaries, ultralytics_hiddenimports = collect_all('ultralytics')
 albumentations_datas, albumentations_binaries, albumentations_hiddenimports = collect_all('albumentations')
 pyside6_datas, pyside6_binaries, pyside6_hiddenimports = collect_all('PySide6')
+# scipy is required by albumentations at runtime
+scipy_datas, scipy_binaries, scipy_hiddenimports = collect_all('scipy')
 
 # ── Analysis ─────────────────────────────────────────────────────────────────
 a = Analysis(
     ['src/app/main.py'],
     pathex=['.'],
-    binaries=ultralytics_binaries + albumentations_binaries + pyside6_binaries,
-    datas=ultralytics_datas + albumentations_datas + pyside6_datas,
+    binaries=ultralytics_binaries + albumentations_binaries + pyside6_binaries + scipy_binaries,
+    datas=ultralytics_datas + albumentations_datas + pyside6_datas + scipy_datas,
     hiddenimports=[
         # PySide6
         *pyside6_hiddenimports,
@@ -37,6 +39,11 @@ a = Analysis(
         *ultralytics_hiddenimports,
         # Albumentations
         *albumentations_hiddenimports,
+        # Scipy (used by albumentations)
+        *scipy_hiddenimports,
+        'scipy',
+        'scipy.spatial',
+        'scipy.ndimage',
         # OpenCV
         'cv2',
         # FAISS
@@ -70,7 +77,6 @@ a = Analysis(
         'jupyter',
         'notebook',
         'IPython',
-        'scipy',
         'pandas',
         'sklearn',
         'skimage',

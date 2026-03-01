@@ -34,26 +34,43 @@ class TrainingProgress(QWidget):
         self._progress.setFixedHeight(12)
         layout.addWidget(self._progress)
 
+        _METRIC_STYLE = (
+            "background-color: #313244; border-radius: 6px; padding: 6px 12px;"
+            " color: #cdd6f4; font-size: 14px; font-weight: bold;"
+        )
+
         metrics_layout = QHBoxLayout()
+        metrics_layout.setSpacing(8)
 
         self._epoch_label = QLabel("Epoca: -")
+        self._epoch_label.setStyleSheet(_METRIC_STYLE)
+        self._epoch_label.setMinimumWidth(90)
         metrics_layout.addWidget(self._epoch_label)
 
         self._loss_label = QLabel("Loss: -")
+        self._loss_label.setStyleSheet(_METRIC_STYLE)
+        self._loss_label.setMinimumWidth(110)
         metrics_layout.addWidget(self._loss_label)
 
         self._acc_label = QLabel("Accuracy: -")
+        self._acc_label.setStyleSheet(_METRIC_STYLE)
+        self._acc_label.setMinimumWidth(130)
         metrics_layout.addWidget(self._acc_label)
 
         self._best_label = QLabel("Mejor: -")
+        self._best_label.setStyleSheet(
+            _METRIC_STYLE.replace("#cdd6f4", "#a6e3a1")
+        )
+        self._best_label.setMinimumWidth(110)
         metrics_layout.addWidget(self._best_label)
 
+        metrics_layout.addStretch()
         layout.addLayout(metrics_layout)
 
         # Epoch history
         self._history_label = QLabel("")
         self._history_label.setWordWrap(True)
-        self._history_label.setStyleSheet("color: #a6adc8; font-size: 12px;")
+        self._history_label.setStyleSheet("color: #a6adc8; font-size: 13px;")
         layout.addWidget(self._history_label)
 
         self._history: list[str] = []

@@ -146,6 +146,7 @@ class TrainingWorker(BaseWorker):
             total_embeddings,
         )
         return {
+            "mode": "incremental",
             "num_products": total_products,
             "num_embeddings": total_embeddings,
         }
@@ -282,6 +283,7 @@ class TrainingWorker(BaseWorker):
             best_accuracy,
         )
         return {
+            "mode": "full",
             "epochs": total_epochs,
             "best_accuracy": best_accuracy,
             "model_path": str(model_path),

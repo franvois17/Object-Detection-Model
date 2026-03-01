@@ -102,8 +102,10 @@ class TrainingPage(QWidget):
         adv_layout.addLayout(epochs_layout)
 
         btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
         self._btn_full = QPushButton("Iniciar Entrenamiento Completo")
         self._btn_full.setObjectName("primary")
+        self._btn_full.setMinimumHeight(40)
         self._btn_full.clicked.connect(
             lambda: self._start_training("full")
         )
@@ -111,6 +113,8 @@ class TrainingPage(QWidget):
 
         self._btn_cancel = QPushButton("Cancelar")
         self._btn_cancel.setObjectName("danger")
+        self._btn_cancel.setMinimumHeight(40)
+        self._btn_cancel.setMinimumWidth(100)
         self._btn_cancel.setEnabled(False)
         self._btn_cancel.clicked.connect(self._cancel_training)
         btn_row.addWidget(self._btn_cancel)

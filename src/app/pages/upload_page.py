@@ -267,6 +267,11 @@ class UploadPage(QWidget):
     @Slot(object)
     def _on_finished(self, result: dict) -> None:
         n = result.get("num_crops", 0)
+        # Wait for the thread to fully finish before releasing the reference,
+        # otherwise Python may garbage-collect the QThread while it is still
+        # tearing down its native thread (causes a segfault on some platforms).
+        if self._worker is not None:
+            self._worker.wait()
         self._worker = None
         self._progress_label.setText(
             f"{n} recortes extraidos. Entrenando modelo..."
