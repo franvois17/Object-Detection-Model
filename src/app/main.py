@@ -8,6 +8,15 @@ import sys
 import traceback
 from pathlib import Path
 
+# ── Fix sys.stdout/stderr being None in PyInstaller windowed mode ─────────────
+# When console=False, PyInstaller sets stdout/stderr to None. PyTorch's
+# model-download progress bar calls sys.stdout.write(), which crashes with
+# AttributeError: 'NoneType' object has no attribute 'write'.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
 # ── Environment tweaks (must happen before any torch/cv2 imports) ─────────────
 # Prevent OpenMP duplicate library crash (PyTorch + OpenCV/FAISS conflict)
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
