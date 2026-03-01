@@ -2,22 +2,32 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 
 def _project_root() -> Path:
+    """Read-only bundle root (sys._MEIPASS when frozen, repo root in dev)."""
+    if getattr(sys, 'frozen', False):
+        return Path(sys._MEIPASS)
     return Path(__file__).resolve().parents[2]
+
+
+def _user_data_dir() -> Path:
+    """Writable data directory (%APPDATA%\\DetectorInventario when frozen)."""
+    if getattr(sys, 'frozen', False):
+        appdata = Path(os.environ.get('APPDATA', Path.home()))
+        return appdata / 'DetectorInventario'
+    return Path(__file__).resolve().parents[2] / 'data'
 
 
 @dataclass
 class Config:
     # Paths
     project_root: Path = field(default_factory=_project_root)
-
-    @property
-    def data_dir(self) -> Path:
-        return self.project_root / "data"
+    data_dir: Path = field(default_factory=_user_data_dir)
 
     @property
     def db_path(self) -> Path:

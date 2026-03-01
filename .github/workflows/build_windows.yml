@@ -1,0 +1,87 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write   # needed to create GitHub Releases and upload assets
+
+jobs:
+  build:
+    name: Build & Package (Windows x64)
+    runs-on: windows-latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Python ──────────────────────────────────────────────────────────────
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      # ── PyTorch CPU-only (smaller; GPU detected at runtime) ─────────────────
+      - name: Install PyTorch (CPU)
+        run: |
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      # ── Project dependencies (excluding torch — already installed above) ────
+      - name: Install project dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyinstaller
+          pip install PySide6 ultralytics opencv-python-headless faiss-cpu albumentations SQLAlchemy Pillow numpy tqdm
+
+      # ── Generate icon ───────────────────────────────────────────────────────
+      - name: Generate application icon
+        run: python scripts/generate_icon.py
+
+      # ── PyInstaller ─────────────────────────────────────────────────────────
+      - name: Build with PyInstaller
+        run: pyinstaller detector_inventario.spec --clean --noconfirm
+
+      # ── Inno Setup ──────────────────────────────────────────────────────────
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Compile Inno Setup installer
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss
+
+      # ── Upload installer as workflow artifact (for inspection) ───────────────
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DetectorInventario_Setup
+          path: installer/output/DetectorInventario_Setup.exe
+          retention-days: 30
+
+      # ── Create GitHub Release and attach the installer ───────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Detector de Inventario ${{ github.ref_name }}"
+          body: |
+            ## Detector de Inventario ${{ github.ref_name }}
+
+            ### Instalación
+            1. Descarga `DetectorInventario_Setup.exe`
+            2. Ejecuta el instalador y sigue el asistente
+            3. Abre la app desde el acceso directo creado
+
+            > **Nota:** Los modelos de IA (~100 MB) se descargan automáticamente
+            > la primera vez que procesas un video. Asegúrate de tener conexión a internet.
+
+            ### Requisitos
+            - Windows 10 / 11 (64-bit)
+            - Conexión a internet (primer uso)
+            - GPU NVIDIA opcional — se detecta automáticamente para acelerar el procesamiento
+          files: installer/output/DetectorInventario_Setup.exe
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

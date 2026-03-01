@@ -34,3 +34,7 @@ env/
 
 # Logs
 *.log
+
+# Installer output (binaries generados, no van al repo)
+installer/output/
+*.exe
