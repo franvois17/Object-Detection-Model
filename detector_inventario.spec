@@ -13,13 +13,22 @@ albumentations_datas, albumentations_binaries, albumentations_hiddenimports = co
 pyside6_datas, pyside6_binaries, pyside6_hiddenimports = collect_all('PySide6')
 # scipy is required by albumentations at runtime
 scipy_datas, scipy_binaries, scipy_hiddenimports = collect_all('scipy')
+# torch & torchvision: collect_all ensures all native dispatch DLLs are included
+torch_datas, torch_binaries, torch_hiddenimports = collect_all('torch')
+torchvision_datas, torchvision_binaries, torchvision_hiddenimports = collect_all('torchvision')
 
 # ── Analysis ─────────────────────────────────────────────────────────────────
 a = Analysis(
     ['src/app/main.py'],
     pathex=['.'],
-    binaries=ultralytics_binaries + albumentations_binaries + pyside6_binaries + scipy_binaries,
-    datas=ultralytics_datas + albumentations_datas + pyside6_datas + scipy_datas,
+    binaries=(
+        ultralytics_binaries + albumentations_binaries + pyside6_binaries
+        + scipy_binaries + torch_binaries + torchvision_binaries
+    ),
+    datas=(
+        ultralytics_datas + albumentations_datas + pyside6_datas
+        + scipy_datas + torch_datas + torchvision_datas
+    ),
     hiddenimports=[
         # PySide6
         *pyside6_hiddenimports,
@@ -28,7 +37,9 @@ a = Analysis(
         'PySide6.QtWidgets',
         'PySide6.QtMultimedia',
         'PySide6.QtMultimediaWidgets',
-        # PyTorch & torchvision
+        # PyTorch & torchvision (full collection)
+        *torch_hiddenimports,
+        *torchvision_hiddenimports,
         'torch',
         'torch.nn',
         'torch.nn.functional',
@@ -44,6 +55,9 @@ a = Analysis(
         'scipy',
         'scipy.spatial',
         'scipy.ndimage',
+        # SSL certificates for model downloads
+        'certifi',
+        'ssl',
         # OpenCV
         'cv2',
         # FAISS
